@@ -89,3 +89,13 @@ class TestNxosInterfaceModule(TestNxosModule):
         set_module_args(dict(interface='Ethernet2/1', speed='1000'))
         result = self.execute_module(changed=False)
         self.assertEqual(result['commands'], [])
+
+    def test_nxos_interface_no_ip_redirect(self):
+        set_module_args(dict(interface='Ethernet2/1', ip_redirect=False, ipv6_redirect=False))
+        result = self.execute_module(changed=True)
+        self.assertEqual(result['commands'], ['interface Ethernet2/1', 'no ip redirects',
+                                                'no ipv6 redirects', 'interface Ethernet2/1', 'no shutdown'])
+    def test_nxos_interface_ip_redirect(self):
+        set_module_args(dict(interface='Ethernet2/1', ip_redirect=True, ipv6_redirect=True))
+        result = self.execute_module(changed=False)
+        self.assertEqual(result['commands'], [])

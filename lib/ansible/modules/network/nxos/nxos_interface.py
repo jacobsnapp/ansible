@@ -66,6 +66,11 @@ options:
       - Enable/Disable ip forward feature on SVIs.
     choices: ['enable','disable']
     version_added: 2.2
+  ip_redirect:
+    description:
+      - Enable/Disable ip redirect feature on SVIs.
+    type: bool
+    version_added: 2.9
   fabric_forwarding_anycast_gateway:
     description:
       - Associate SVI with anycast gateway under VLAN configuration mode.
@@ -342,6 +347,8 @@ def map_obj_to_commands(updates, module):
         name = w['name']
         mode = w['mode']
         ip_forward = w['ip_forward']
+        ip_redirect = w['ip_redirect']
+        ipv6_redirect = w['ipv6_redirect']
         fabric_forwarding_anycast_gateway = w['fabric_forwarding_anycast_gateway']
         admin_state = w['admin_state']
         state = w['state']
@@ -388,6 +395,16 @@ def map_obj_to_commands(updates, module):
                 elif ip_forward == 'disable' and ip_forward != obj_in_have.get('ip forward'):
                     add_command_to_interface(interface, 'no ip forward', commands)
 
+                if ip_redirect is True and ip_redirect != obj_in_have.get('ip_redirect'):
+                    add_command_to_interface(interface, 'ip redirects', commands)
+                elif ip_redirect is False and ip_redirect != obj_in_have.get('ip_redirect'):
+                    add_command_to_interface(interface, 'no ip redirects', commands)
+
+                if ipv6_redirect is True and ipv6_redirect != obj_in_have.get('ipv6_redirect'):
+                    add_command_to_interface(interface, 'ipv6 redirects', commands)
+                elif ipv6_redirect is False and ipv6_redirect != obj_in_have.get('ipv6_redirect'):
+                    add_command_to_interface(interface, 'no ipv6 redirects', commands)
+
                 if (fabric_forwarding_anycast_gateway is True and
                         obj_in_have.get('fabric_forwarding_anycast_gateway') is False):
                     add_command_to_interface(interface, 'fabric forwarding mode anycast-gateway', commands)
@@ -429,6 +446,16 @@ def map_obj_to_commands(updates, module):
                     commands.append('ip forward')
                 elif ip_forward == 'disable':
                     commands.append('no ip forward')
+
+                if ip_redirect == True:
+                    commands.append('ip redirects')
+                elif ip_redirect == False:
+                    commands.append('no ip redirects') 
+
+                if ipv6_redirect == True:
+                    commands.append('ip redirects')
+                elif ipv6_redirect == False:
+                    commands.append('no ip redirects') 
 
                 if fabric_forwarding_anycast_gateway is True:
                     commands.append('fabric forwarding mode anycast-gateway')
@@ -473,6 +500,8 @@ def map_params_to_obj(module):
             'mtu': module.params['mtu'],
             'duplex': module.params['duplex'],
             'ip_forward': module.params['ip_forward'],
+            'ip_redirect': module.params['ip_redirect'],
+            'ipv6_redirect': module.params['ipv6_redirect'],
             'fabric_forwarding_anycast_gateway': module.params['fabric_forwarding_anycast_gateway'],
             'admin_state': module.params['admin_state'],
             'state': module.params['state'],
@@ -491,7 +520,7 @@ def map_config_to_obj(want, module):
     for w in want:
         obj = dict(name=None, description=None, admin_state=None, speed=None,
                    mtu=None, mode=None, duplex=None, interface_type=None,
-                   ip_forward=None, fabric_forwarding_anycast_gateway=None)
+                   ip_forward=None, ip_redirect=None, ipv6_redirect=None, fabric_forwarding_anycast_gateway=None)
 
         if not w['name']:
             return obj
@@ -549,6 +578,20 @@ def map_config_to_obj(want, module):
                         obj['ip_forward'] = 'enable'
                     else:
                         obj['ip_forward'] = 'disable'
+                
+                    match_ip_redirects = re.search(r'(no|.*)ip redirects', body)
+                    if match_ip_redirects:
+                        if match_ip_redirects[1].strip() == "no":
+                            obj['ip_redirect'] = False
+                    else:
+                        obj['ip_redirect'] = True
+
+                    match_ipv6_redirects = re.search(r'(no|.*)ipv6 redirects', body)
+                    if match_ipv6_redirects:
+                        if match_ipv6_redirects[1].strip() == "no":
+                            obj['ipv6_redirect'] = False
+                    else:
+                        obj['ipv6_redirect'] = True
 
                 elif intf_type == 'svi':
                     obj['name'] = normalize_interface(interface_table.get('interface'))
@@ -569,6 +612,21 @@ def map_config_to_obj(want, module):
                         obj['fabric_forwarding_anycast_gateway'] = True
                     else:
                         obj['fabric_forwarding_anycast_gateway'] = False
+
+                    match_ip_redirects = re.search(r'(no|.*)ip redirects', body)
+                    if match_ip_redirects:
+                        if match_ip_redirects[1].strip() == "no":
+                            obj['ip_redirect'] = False
+                    else:
+                        obj['ip_redirect'] = True
+                            
+
+                    match_ipv6_redirects = re.search(r'(no|.*)ipv6 redirects', body)
+                    if match_ipv6_redirects:
+                        if match_ipv6_redirects[1].strip() == "no":
+                            obj['ipv6_redirect'] = False
+                    else:
+                        obj['ipv6_redirect'] = True
 
                 elif intf_type in ('loopback', 'management', 'nve'):
                     obj['name'] = normalize_interface(interface_table.get('interface'))
@@ -688,6 +746,8 @@ def main():
         duplex=dict(choices=['full', 'half', 'auto']),
         interface_type=dict(choices=['loopback', 'portchannel', 'svi', 'nve']),
         ip_forward=dict(choices=['enable', 'disable']),
+        ip_redirect=dict(type='bool'),
+        ipv6_redirect=dict(type='bool'),
         fabric_forwarding_anycast_gateway=dict(type='bool'),
         tx_rate=dict(),
         rx_rate=dict(),
